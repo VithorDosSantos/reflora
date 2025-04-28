@@ -1,0 +1,39 @@
+{
+  "name": "reflora",
+  "version": "1.0.0",
+  "description": "A RESTful API for managing sensors and their data.",
+  "main": "dist/index.js",
+  "overrides": {
+    "esbuild": "^0.25.0"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
+    "build": "rimraf dist && tsup src/index.ts --format cjs,esm --dts --minify"
+  },
+  "keywords": [
+    "express",
+    "typescript",
+    "postgres",
+    "drizzle",
+    "api"
+  ],
+  "author": "Murilo Carneiro e Vithor dos Santos",
+  "license": "ISC",
+  "dependencies": {
+    "drizzle-orm": "^0.43.1",
+    "express": "^5.1.0",
+    "pg": "^8.15.6",
+    "rimraf": "^6.0.1"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.7.0",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.15.3",
+    "@types/pg": "^8.11.14",
+    "drizzle-kit": "^0.31.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
