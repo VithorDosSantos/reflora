@@ -21,14 +21,20 @@
   "author": "Murilo Carneiro e Vithor dos Santos",
   "license": "ISC",
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.5.0",
     "drizzle-orm": "^0.43.1",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.15.6",
     "rimraf": "^6.0.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.7.0",
+    "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.15.3",
     "@types/pg": "^8.11.14",
     "drizzle-kit": "^0.31.0",
