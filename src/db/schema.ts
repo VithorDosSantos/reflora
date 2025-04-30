@@ -12,7 +12,7 @@ export const userTable = pgTable('user', {
 });
 
 export const sensorTable = pgTable('sensor', {
-  sensorId: serial('sensor_id').primaryKey(),
+  sensorId: integer('sensor_id').primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => userTable.userId, { onDelete: 'cascade' }),
@@ -22,7 +22,7 @@ export const sensorTable = pgTable('sensor', {
 });
 
 export const sensorDataTable = pgTable('sensor_data', {
-  sensorDataId: serial('sensor_data_id').primaryKey(),
+  sensorDataId: varchar('sensor_data_id').primaryKey(),
   sensorId: integer('sensor_id')
     .notNull()
     .references(() => sensorTable.sensorId, { onDelete: 'cascade' }),
