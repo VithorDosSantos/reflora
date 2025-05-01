@@ -27,21 +27,26 @@ router.post('/register', async (req: Request, res: Response) => {
     res.status(201).json(userDb);
   } catch (error) {
     res.status(500).json({ message: "Erro no Servidor, tente novamente" });
+    console.error(error);
   }
 })
 
-
+// Login de usuário
 router.post('/login', async (req: Request, res: Response) : Promise<any> => {
   try{
-    const userInfo = req.body;
+    const {email, password} = req.body;
 
-    const selectedUser = await db.select().from(userTable).where(eq(userTable.email, userInfo.email)).execute();
+    if(!email || !password){
+      return res.status(400).json({message: "Email e senha são obrigatórios"});
+    }
 
-    if(!selectedUser){
+    const selectedUser = await db.select().from(userTable).where(eq(userTable.email, email)).execute();
+
+    if(selectedUser.length === 0){
       return res.status(404).json({message: "Usuário não encontrado"});
     }
 
-    const isMatch = await bcrypt.compare(userInfo.password, selectedUser[0].password);
+    const isMatch = await bcrypt.compare(password, selectedUser[0].password!);
 
     if(!isMatch){
       return res.status(401).json({message: "Senha incorreta"});

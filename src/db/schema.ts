@@ -1,77 +1,59 @@
-import { pgTable, serial, varchar, timestamp, text, real, integer, pgEnum } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { pgTable, serial, varchar, timestamp, real, text, integer, primaryKey, foreignKey } from 'drizzle-orm/pg-core';
 
-export const alertLevelEnum = pgEnum('alert_level', ['INFO', 'WARNING', 'CRITICAL']);
-
+// Tabela user
 export const userTable = pgTable('user', {
   userId: serial('user_id').primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  email: varchar('email', { length: 255 }).notNull().unique(),
-  password: varchar('password', { length: 255 }).notNull(),
-  creationDate: timestamp('creation_date').defaultNow().notNull(),
+  name: varchar('name', { length: 255 }),
+  email: varchar('email', { length: 255 }).unique(),
+  password: varchar('password', { length: 255 }),
+  creationDate: timestamp('creation_date').defaultNow(),
 });
 
+// Tabela sensor
 export const sensorTable = pgTable('sensor', {
-  sensorId: integer('sensor_id').primaryKey(),
-  userId: integer('user_id')
-    .notNull()
-    .references(() => userTable.userId, { onDelete: 'cascade' }),
-  sensorName: varchar('sensor_name', { length: 255 }).notNull(),
-  location: varchar('location', { length: 255 }).notNull(),
-  installationDate: timestamp('installation_date').defaultNow().notNull(),
-});
+  sensorId: serial('sensor_id').primaryKey(),
+  userId: integer('user_id').references(() => userTable.userId),
+  sensorName: varchar('sensor_name', { length: 255 }),
+  location: varchar('location', { length: 255 }),
+  installationDate: timestamp('installation_date'),
+}, (table) => ({
+  fkUser: foreignKey({
+    columns: [table.userId],
+    foreignColumns: [userTable.userId],
+    name: 'fk_user',
+  }),
+}));
 
+// Tabela sensor_data
 export const sensorDataTable = pgTable('sensor_data', {
-  sensorDataId: varchar('sensor_data_id').primaryKey(),
-  sensorId: integer('sensor_id')
-    .notNull()
-    .references(() => sensorTable.sensorId, { onDelete: 'cascade' }),
-  pH: real('pH').notNull(),
-  shadingIndex: real('shading_index').notNull(),
-  airHumidity: real('air_humidity').notNull(),
-  soilNutrients: text('soil_nutrients').notNull(),
-  temperature: real('temperature').notNull(),
-  dateTime: timestamp('date_time').defaultNow().notNull(),
-});
+  sensorDataId: serial('sensor_data_id').primaryKey(),
+  sensorId: integer('sensor_id').references(() => sensorTable.sensorId),
+  ph: real('ph'),
+  shadingIndex: real('shading_index'),
+  airHumidity: real('air_humidity'),
+  soilHumidity: real('soil_humidity'),
+  soilNutrients: text('soil_nutrients'),
+  temperature: real('temperature'),
+  dateTime: timestamp('date_time').defaultNow(),
+}, (table) => ({
+  fkSensor: foreignKey({
+    columns: [table.sensorId],
+    foreignColumns: [sensorTable.sensorId],
+    name: 'fk_sensor',
+  }),
+}));
 
-export const sensorAlertTable = pgTable('alert', {
+// Tabela alert
+export const alertTable = pgTable('alert', {
   alertId: serial('alert_id').primaryKey(),
-  sensorId: integer('sensor_id')
-    .notNull()
-    .references(() => sensorTable.sensorId, { onDelete: 'cascade' }),
-  message: text('message').notNull(),
-  level: alertLevelEnum('level').notNull().default('INFO'),
-  timestamp: timestamp('timestamp').defaultNow().notNull(),
-});
-
-export const userRelations = relations(userTable, ({ many }) => ({
-  sensors: many(sensorTable),
-}));
-
-export const sensorRelations = relations(sensorTable, ({ one, many }) => ({
-  user: one(userTable, {
-    fields: [sensorTable.userId],
-    references: [userTable.userId],
-  }),
-  sensorData: many(sensorDataTable),
-  alerts: many(sensorAlertTable),
-}));
-
-export const sensorDataRelations = relations(sensorDataTable, ({ one }) => ({
-  sensor: one(sensorTable, {
-    fields: [sensorDataTable.sensorId],
-    references: [sensorTable.sensorId],
+  sensorId: integer('sensor_id').references(() => sensorTable.sensorId),
+  message: text('message'),
+  level: varchar('level', { length: 50 }),
+  timestamp: timestamp('timestamp').defaultNow(),
+}, (table) => ({
+  fkSensorAlert: foreignKey({
+    columns: [table.sensorId],
+    foreignColumns: [sensorTable.sensorId],
+    name: 'fk_sensor_alert',
   }),
 }));
-
-export const alertRelations = relations(sensorAlertTable, ({ one }) => ({
-  sensor: one(sensorTable, {
-    fields: [sensorAlertTable.sensorId],
-    references: [sensorTable.sensorId],
-  }),
-}));
-
-export type User = typeof userTable.$inferSelect;
-export type Sensor = typeof sensorTable.$inferSelect;
-export type SensorData = typeof sensorDataTable.$inferSelect;
-export type SensorAlert = typeof sensorAlertTable.$inferSelect;
