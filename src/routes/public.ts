@@ -22,7 +22,7 @@ router.post('/register', async (req: Request, res: Response) => {
       name: userData.name,
       email: userData.email,
       password: hashPassword,
-    }).returning().execute();
+    }).execute();
 
     res.status(201).json(userDb);
   } catch (error) {

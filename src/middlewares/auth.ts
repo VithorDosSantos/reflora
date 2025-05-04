@@ -1,4 +1,5 @@
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 
 declare global {
   namespace Express {
@@ -7,31 +8,33 @@ declare global {
     }
   }
 }
-import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const auth = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.headers.authorization!.split(' ')[1]
-  
-  if(!req.headers.authorization){
-    return res.status(401).json({message: "Acesso negado"})
+const auth = (req: Request, res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    res.status(401).json({ message: "Acesso negado" });
+    return;
   }
 
-  if(!token){
-    res.status(401).json({message: "Acesso negado"})
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    res.status(401).json({ message: "Token não fornecido" });
+    return;
   }
 
   try {
-    const decoded = jwt.verify(token!, JWT_SECRET!);
-
+    if(!JWT_SECRET) {
+      throw new Error("JWT_SECRET não está definido no ambiente.");
+    }
+    const decoded = jwt.verify(token, JWT_SECRET!);
     req.userId = (decoded as jwt.JwtPayload).id;
+    next();
   } catch (error) {
-    return res.status(401).json({message: "Token inválido"})
+    res.status(401).json({ message: "Token inválido" });
   }
-  
-  next();
-}
-
+};
 
 export default auth;
