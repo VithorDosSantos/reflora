@@ -37,7 +37,7 @@ router.post('/register', async (req: Request, res: Response):Promise<any> => {
       name,
       email,
       password: hashPassword,
-    }).execute();
+    }).returning().execute();
 
     res.status(201).json(userDb);
   } catch (error) {
