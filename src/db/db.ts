@@ -17,4 +17,4 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? true : false
 });
 
-export const db = drizzle(pool, { schema });
+export const db = drizzle(pool, { schema })
