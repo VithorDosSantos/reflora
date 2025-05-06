@@ -1,148 +1,293 @@
-import express, {Request, Response} from 'express';
-
-import { eq, and } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import express, { Request, Response } from 'express';
 import { db } from '../db/db';
-import { sensorDataTable, userTable,sensorTable, alertTable } from '../db/schema';
+import {
+  sensorDataTable,
+  sensorTable
+} from '../db/schema';
 
 const router = express.Router();
 
-// Cadastro de sensor
-router.post('/sensors', async (req: Request, res: Response) : Promise<any>  => {
+// Mensagens de erro reutilizáveis
+const ERROR_SERVER = 'Erro no Servidor, tente novamente';
+const ERROR_NOT_FOUND = 'Não encontrado';
+const ERROR_MISSING_FIELDS = 'Campos obrigatórios estão faltando';
+const ERROR_INVALID_SENSOR = 'Sensor não encontrado';
+const ERROR_INVALID_DATA = 'Dado não encontrado';
+
+interface AuthenticatedRequest extends Request {
+  userId?: number;
+}
+
+// Função para tratar erros
+const handleError = (res: Response, message: string, statusCode = 500) => {
+  console.error(message);
+  return res.status(statusCode).json({ message });
+};
+
+// Cadastrar sensor
+router.post('/sensors', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
     const { sensorName, location } = req.body;
-    const {userId} = req;
-    
-    if(!userId || !sensorName || !location) {
-      return res.status(400).json({ message: "userId, sensorName e location são obrigatórios" });
+    const userId = req.userId;
+    if (!userId || !sensorName || !location) {
+      return res.status(400).json({ message: ERROR_MISSING_FIELDS });
     }
-    
-    await db.insert(sensorTable).values({
-      userId,
-      sensorName,
-      location,
-      installationDate: new Date()
-    })
-    
-    res.status(201).json({ message: "Sensor cadastrado com sucesso" });
+    await db
+      .insert(sensorTable)
+      .values({ userId, sensorName, location, installationDate: new Date() })
+      .execute();
+
+    return res.status(201).json({ message: 'Sensor cadastrado com sucesso' });
   } catch (error) {
-    res.status(500).json({ message: "Erro no Servidor, tente novamente" });
-  }
-})
-
-// Cadstro do sensor_data em um sensor
-router.post('/sensors/:sensorId/data', async (req:Request, res: Response):Promise<any>=>{
-  try{
-    const {sensorId} = req.params
-    const { ph, shadingIndex, airHumidity, soilHumidity, soilNutrients ,temperature } = req.body;
-    const {userId} = req
-    
-    const userSensors = await db.select().from(sensorTable).where(eq(sensorTable.userId, Number(userId))).execute()
-    if(userSensors.length === 0){
-      return res.status(404).json({message : "Nenhum sensor encontrado"})
-    }
-    const selectedSensor = userSensors.filter(sensor => sensor.sensorId === parseInt(sensorId))
-
-    if(selectedSensor.length === 0){
-      return res.status(404).json({message : "Sensor não encontrado"})
-    }
-    
-    await db.insert(sensorDataTable).values({
-      sensorId: parseInt(sensorId),
-      ph,
-      shadingIndex,
-      airHumidity,
-      soilHumidity,
-      soilNutrients,
-      temperature,
-      dateTime: new Date()
-    }).execute()
-    res.status(200).json({message : 'Dados do sensor adicionado '})
-  }catch(error){
-    res.status(500).json({message : "Erro no Servidor, Tente Novamente"})
-    console.error(error)
-  }
-})
-
-// Cadastro de alerta em um sensor
-router.post('/sensors/:sensorId/alert', async (req:Request, res: Response):Promise<any>=>{
-  try {
-    const {userId} = req;
-    const {sensorId} = req.params;
-    const {message, level} = req.body;
-
-    const selectedSensor = await db.select().from(sensorTable).where(and(eq(sensorTable.sensorId, Number(sensorId)), eq(sensorTable.userId, Number(userId)))).execute();
-
-
-    if(selectedSensor.length === 0){
-      return res.status(404).json({message: "Sensor não encontrado"});
-    }
-
-    await db.insert(alertTable).values({
-      sensorId: parseInt(sensorId),
-      message,
-      level,
-      timestamp: new Date()
-    }).execute();
-
-    res.status(200).json({message: "Alerta adicionado com sucesso"});
-  } catch (error) {
-    res.status(500).json({message: "Erro no Servidor, Tente Novamente"});
-  }
-})
-
-// Listar Informações do usuário
-router.get('/me', async (req: Request, res: Response) : Promise<any> => {
-  try {
-    const {userId} = req;
-    const user = await db.select().from(userTable).where(eq(userTable.userId, Number(userId))).execute()
-    if(user.length === 0){
-      return res.status(404).json({message: "Usuário não encontrado"})
-    }
-    res.status(200).json(user[0]);
-  } catch (error) {
-    res.status(500).json({ message: "Erro no Servidor, tente novamente" });
+    return handleError(res, ERROR_SERVER);
   }
 });
 
 // Listar sensores do usuário
-router.get('/sensors', async (req: Request, res: Response) : Promise<any> => {
+router.get('/sensors', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
-    const {userId} = req
-    const userSensors = await db.select().from(sensorTable).where(eq(sensorTable.userId, Number(userId))).execute()
-    if(userSensors.length === 0){
-      return res.status(404).json({message: "Nenhum sensor encontrado"})
-    }
-    res.status(200).json(userSensors);
-  } catch (error) {
-    res.status(500).json({ message: "Erro no Servidor, tente novamente" });
-  }
-})
+    const userId = req.userId!;
+    const userSensors = await db
+      .select()
+      .from(sensorTable)
+      .where(eq(sensorTable.userId, userId))
+      .execute();
 
-// Listar sensor por id
-router.get('/sensors/:sensorId', async (req: Request, res: Response) : Promise<any> => {
+    if (userSensors.length === 0) {
+      return res.status(404).json({ message: ERROR_NOT_FOUND });
+    }
+
+    return res.status(200).json(userSensors);
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Buscar sensor específico
+router.get('/sensors/:sensorId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
-    const { sensorId } = req.params;
-    const {userId} = req;
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
 
-    const userSensors = await db.select().from(sensorTable).where(eq(sensorTable.userId, Number(userId)));
-
-    if(userSensors.length === 0){
-      return res.status(404).json({message: "Nenhum sensor encontrado"})
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
     }
-
-    const selectedSensor = userSensors.filter(sensor => sensor.sensorId === parseInt(sensorId));
-
-    if(selectedSensor.length === 0){
-      return res.status(404).json({message: "Sensor não encontrado"})
-    }
-
-    res.status(200).json(selectedSensor[0]);
-    console.log(req);
-
+    return res.status(200).json(sensor);
   } catch (error) {
-    res.status(500).json({ message: "Erro no Servidor, tente novamente" });
+    return handleError(res, ERROR_SERVER);
   }
-})
+});
 
+// Atualizar sensor
+router.put('/sensors/:sensorId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+    const { sensorName, location } = req.body;
+
+    if (!sensorName || !location) {
+      return res.status(400).json({ message: 'sensorName e location são obrigatórios' });
+    }
+
+    const result = await db
+      .update(sensorTable)
+      .set({ sensorName, location })
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    return res.status(200).json({ message: 'Sensor atualizado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Deletar sensor
+router.delete('/sensors/:sensorId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+
+    const result = await db
+      .delete(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    return res.status(200).json({ message: 'Sensor deletado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Inserir dados em um sensor
+router.post('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+    const { ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature } = req.body;
+
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    await db
+      .insert(sensorDataTable)
+      .values({
+        sensorId,
+        ph,
+        shadingIndex,
+        airHumidity,
+        soilHumidity,
+        soilNutrients,
+        temperature,
+        dateTime: new Date(),
+      })
+      .execute();
+
+    return res.status(201).json({ message: 'Dados do sensor adicionados com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Listar todos os dados de um sensor
+router.get('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    const data = await db
+      .select()
+      .from(sensorDataTable)
+      .where(eq(sensorDataTable.sensorId, sensorId))
+      .execute();
+
+    if (data.length === 0) {
+      return res.status(404).json({ message: ERROR_INVALID_DATA });
+    }
+
+    return res.status(200).json(data);
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Buscar dado específico de um sensor
+router.get('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const dataId = Number(req.params.dataId);
+    const userId = req.userId!;
+
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    const [datum] = await db
+      .select()
+      .from(sensorDataTable)
+      .where(and(eq(sensorDataTable.sensorDataId, dataId), eq(sensorDataTable.sensorId, sensorId)))
+      .execute();
+
+    if (!datum) {
+      return res.status(404).json({ message: ERROR_INVALID_DATA });
+    }
+
+    return res.status(200).json(datum);
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Atualizar dado específico
+router.put('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const dataId = Number(req.params.dataId);
+    const userId = req.userId!;
+    const { ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature } = req.body;
+
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+
+    const result = await db
+      .update(sensorDataTable)
+      .set({ ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature })
+      .where(and(eq(sensorDataTable.sensorDataId, dataId), eq(sensorDataTable.sensorId, sensorId)))
+      .execute();
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: ERROR_INVALID_DATA });
+    }
+
+    return res.status(200).json({ message: 'Dado do sensor atualizado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Deletar dado específico
+router.delete('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const dataId = Number(req.params.dataId);
+    const userId = req.userId!;
+
+    const result = await db
+      .delete(sensorDataTable)
+      .where(and(eq(sensorDataTable.sensorDataId, dataId), eq(sensorDataTable.sensorId, sensorId)))
+      .execute();
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: ERROR_INVALID_DATA });
+    }
+
+    return res.status(200).json({ message: 'Dado do sensor deletado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
 
 export default router;
