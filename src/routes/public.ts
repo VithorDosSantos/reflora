@@ -1,11 +1,11 @@
-import express, {Request, Response} from 'express';
 import bcrypt from 'bcrypt';
+import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 
 import { eq } from 'drizzle-orm';
 import { db } from '../db/db';
 
-import {userTable} from '../db/schema';
+import { userTable } from '../db/schema';
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -59,8 +59,6 @@ router.post('/login', async (req: Request, res: Response) : Promise<any> => {
     res.status(500).json({ message: "Erro no Servidor, tente novamente" });
     console.error(error);
   }
-  
-  
 });
 
 export default router;
